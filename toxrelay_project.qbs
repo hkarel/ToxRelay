@@ -5,7 +5,7 @@ ToxRealayBase {
     name: "ToxRealay (Project)"
 
     references: [
-        //"src/pproto/pproto.qbs",
+        "src/pproto/pproto.qbs",
         //"src/rapidjson/rapidjson.qbs",
         "src/shared/shared.qbs",
         "src/toxcore/toxcore.qbs",

@@ -13,3 +13,6 @@
 [submodule "src/yaml"]
 	path = src/yaml
 	url = https://github.com/hkarel/yaml-cpp.git
+[submodule "src/pproto/pproto"]
+	path = src/pproto/pproto
+	url = https://github.com/hkarel/PProtoCpp.git
