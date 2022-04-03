@@ -104,6 +104,7 @@ Product {
 //    )
 
     cpp.systemIncludePaths: QbsUtl.concatPaths(
+        ["/usr/include/opus"],
         lib.sodium.includePath
     )
 

@@ -44,6 +44,7 @@ Project {
           //"PPROTO_JSON_SERIALIZE",
             "PPROTO_QBINARY_SERIALIZE",
             "LOGGER_LESS_SNPRINTF",
+            "TOX_MESSAGE_SIGNATURE=\"TOXRELAY\"",
             "CONFIG_DIR=\"/etc/toxrelay\"",
             "VAROPT_DIR=\"/var/opt/toxrelay\"",
         ];
