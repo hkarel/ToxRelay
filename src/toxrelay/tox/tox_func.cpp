@@ -168,7 +168,7 @@ TOX_CONNECTION getFriendConnectStatus(Tox* tox, uint32_t friendNumber)
 //    return std::move(message);
 //}
 
-char* toString(TOX_CONNECTION val)
+const char* toString(TOX_CONNECTION val)
 {
     switch (val)
     {
@@ -176,4 +176,5 @@ char* toString(TOX_CONNECTION val)
         case TOX_CONNECTION_TCP:  return "TCP";
         case TOX_CONNECTION_UDP:  return "UDP";
     }
+    return "NONE";
 }

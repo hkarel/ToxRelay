@@ -6,6 +6,7 @@ ToxRealayBase {
 
     references: [
         "src/pproto/pproto.qbs",
+        "src/qrcode/qrcode.qbs",
         //"src/rapidjson/rapidjson.qbs",
         "src/shared/shared.qbs",
         "src/toxcore/toxcore.qbs",

@@ -4,7 +4,8 @@
 #include <QtCore>
 
 /**
-  Используется для безопасного вызова tox-функций из разных потоков
+  Используется для безопасного вызова tox-функций из разных потоков.
+  См. обсуждение: https://github.com/TokTok/c-toxcore/issues/854
 */
 struct ToxGlobalLock
 {
@@ -40,4 +41,4 @@ TOX_CONNECTION getFriendConnectStatus(Tox* tox, uint32_t friendNumber);
 //const communication::Message::Ptr readToxMessage(Tox* tox, uint32_t friendNumber,
 //                                                 const uint8_t* data, size_t length);
 
-char* toString(TOX_CONNECTION);
+const char* toString(TOX_CONNECTION);

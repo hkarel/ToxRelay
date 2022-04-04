@@ -15,11 +15,15 @@
 #include "commands/commands.h"
 #include "commands/error.h"
 
+#include "toxcore/tox.h"
 #include "tox/tox_net.h"
+#include "tox/tox_func.h"
 #include "tox/tox_logger.h"
 
+#include "qrcodegen.hpp"
 #include "usbrelay/usb_relay.h"
 
+#include <QTcpSocket>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <string>
@@ -34,7 +38,7 @@
 
 #define KILL_TIMER(TIMER) {if (TIMER != -1) {killTimer(TIMER); TIMER = -1;}}
 
-//using namespace sql;
+using namespace qrcodegen;
 
 QUuidEx Application::_applId;
 volatile bool Application::_stop = false;
@@ -43,6 +47,10 @@ std::atomic_int Application::_exitCode = {0};
 Application::Application(int& argc, char** argv)
     : QCoreApplication(argc, argv)
 {
+    _httpConnector = new QTcpServer(this);
+    chk_connect_a(_httpConnector, &QTcpServer::newConnection,
+                  this, &Application::httpNewConnection)
+
     _stopTimerId = startTimer(1000);
 //    _clearHistoryTimerId = startTimer(4*60*60*1000 /*4 часа*/);
 
@@ -71,53 +79,21 @@ bool Application::init()
 //        config::state().saveFile();
 //        log_verbose_m << "Generated new ApplId: " << _applId;
 //    }
-
-//    readConfParams();
 //    loadSettings();
-//    netInterfacesUpdate();
+
+    if (!_httpConnector->listen(QHostAddress::Any, 8088))
+    {
+        log_error_m << "Start listener of http connection is failed";
+        return false;
+    }
 
     return true;
 }
 
 void Application::deinit()
 {
-//    if (!_eventLogId.isNull())
-//    {
-//        db::postgres::Driver::Ptr dbcon = pgpool().connect();
-//        QSqlQuery q {dbcon->createResult()};
-
-//        QDateTime humanLost = QDateTime::currentDateTime();
-//        sql::exec(q, "UPDATE EVENT_LOG SET HUMAN_LOST = $1 WHERE ID = $2",
-//                     humanLost, _eventLogId);
-//    }
-
-//    _threadIds.lock([](const std::vector<pid_t>& tids) {
-//        for (pid_t tid : tids)
-//            pgpool().abortOperation(tid);
-//    });
-//    while (!_threadIds.empty())
-//        usleep(100*1000);
-
-//    { //Block for QMutexLocker
-//        QMutexLocker locker {&_framesCacheLock}; (void) locker;
-//        _framesCache.clear();
-//    }
-
-//    _videoSaver.store(nullptr);
-//    for (video::Saver2* saver : _videoSavers)
-//        if (!saver->stop(30*1000 /*30 сек*/))
-//        {
-//            log_info_m << "Stop thread 'VideoSaver'. Timeout expired"
-//                          ", thread will be terminated";
-//            saver->terminate();
-//        }
+    _httpConnector->close();
 }
-
-//void Application::sendSettings()
-//{
-//    Message::Ptr m = createMessage(_settings);
-//    detect::siz().message(m);
-//}
 
 void Application::timerEvent(QTimerEvent* event)
 {
@@ -176,31 +152,6 @@ void Application::message(const pproto::Message::Ptr& message)
     }
 }
 
-//void Application::socketConnected(pproto::SocketDescriptor socketDescript)
-//{
-//    Message::Ptr m = createMessage(_settings);
-//    m->appendDestinationSocket(socketDescript);
-//    tcp::listener().send(m);
-
-//    m = createMessage(_usbRelayStatus);
-//    m->appendDestinationSocket(socketDescript);
-//    tcp::listener().send(m);
-
-//    ++_terminalConnectCount;
-//}
-
-//void Application::socketDisconnected(pproto::SocketDescriptor /*socketDescript*/)
-//{
-//    if (--_terminalConnectCount < 0)
-//        _terminalConnectCount = 0;
-
-//    if (_terminalConnectCount == 0)
-//    {
-//        QMutexLocker locker {&_videoEventAnswersLock}; (void) locker;
-//        _videoEventAnswers.clear();
-//    }
-//}
-
 void Application::usbRelayAttached()
 {
 //    _usbRelayStatus.attached = true;
@@ -232,66 +183,121 @@ void Application::usbRelayChanged(int relayNumber)
 ////    tcp::listener().send(m);
 }
 
-//void Application::readConfParams()
-//{
-//    config::base().getValue("show_debug_time", _showDebugTime);
-//}
+void Application::httpNewConnection()
+{
+    QTcpSocket* client = _httpConnector->nextPendingConnection();
+    chk_connect_a(client, &QTcpSocket::disconnected,
+                  this,   &Application::httpDisconnected)
+    chk_connect_a(client, &QTcpSocket::readyRead,
+                  this,   &Application::httpReadyRead)
+    chk_connect_a(client, qOverload<QAbstractSocket::SocketError>(&QTcpSocket::error),
+                  this,   &Application::httpSocketError)
+}
 
-//void Application::netInterfacesUpdate()
-//{
-//    if (_netInterfacesTimer.elapsed() > 15*1000 /*15 сек*/)
-//    {
-//        network::Interface::List nl = network::getInterfaces();
-//        _netInterfaces.swap(nl);
-//    }
-//}
+std::string toSvgString(const QrCode& qr, int border)
+{
+//    if (border < 0)
+//        throw std::domain_error("Border must be non-negative");
+//    if (border > INT_MAX / 2 || border * 2 > INT_MAX - qr.getSize())
+//        throw std::overflow_error("Border too large");
+
+    std::ostringstream sb;
+    sb << R"(<svg xmlns="http://www.w3.org/2000/svg" version="1.1" )";
+    sb << R"(viewBox="0 0 45 45" stroke="none" width="200" height="200">)";
+    sb << R"(<path d=")";
+    for (int y = 0; y < qr.getSize(); ++y)
+        for (int x = 0; x < qr.getSize(); ++x)
+            if (qr.getModule(x, y))
+            {
+                if (x != 0 || y != 0)
+                    sb << " ";
+                sb << "M" << (x + border) << "," << (y + border) << "h1v1h-1z";
+            }
+
+    sb << R"(" fill="#000000"/>)";
+    sb << R"(</svg>)";
+    return sb.str();
+}
+
+void Application::httpReadyRead()
+{
+    QTcpSocket* client = qobject_cast<QTcpSocket*>(sender());
+
+    QByteArray ba = client->readAll();
+    log_debug_m << "Received from http client: " << ba;
+
+    if (!ba.startsWith("GET / "))
+    {
+        client->write("HTTP/1.0 404 Not found\n\n");
+        client->disconnectFromHost();
+        return;
+    }
+
+    QString s =
+        R"(HTTP/1.0 200 Ok
+           Content-Type: text/html; charset="utf-8"
+
+           <html>
+           <body style="background: white;">
+           <div>Tox ID: %1</div>
+           %2
+           </body>
+           </html>
+        )";
+
+    QByteArray toxId;
+    { //Block for ToxGlobalLock
+        ToxGlobalLock toxGlobalLock; (void) toxGlobalLock;
+        toxId.resize(TOX_ADDRESS_SIZE);
+        tox_self_get_address(toxNet().tox(), (uint8_t*)toxId.constData());
+        toxId = toxId.toHex().toUpper();
+    }
+
+    std::string qrsvg;
+    try
+    {
+        //QByteArray toxLink = "tox:" + toxId;
+        QrCode qr = QrCode::encodeText(toxId.constData(), QrCode::Ecc::LOW);
+        qrsvg = toSvgString(qr, 4);
+    }
+    catch (const std::exception& e)
+    {
+        qrsvg.clear();
+        log_error_m << "Failed create QrCode. Detail: " << e.what();
+    }
+    catch (...)
+    {
+        qrsvg.clear();
+        log_error_m << "Failed create QrCode. Unknown error";
+    }
+
+    s = s.arg(toxId.constData()).arg(qrsvg.c_str());
+    log_debug_m << "Sent to http client: " << s;
+
+//    QFile f {"/tmp/1.svg"};
+//    f.open(QIODevice::WriteOnly);
+//    f.write(qrsvg.c_str());
+//    f.close();
+
+    //ba = s.toUtf8();
+    client->write(s.toUtf8());
+    client->disconnectFromHost();
+}
+
+void Application::httpDisconnected()
+{
+    QTcpSocket* client = qobject_cast<QTcpSocket*>(sender());
+    client->deleteLater();
+}
+
+void Application::httpSocketError(QAbstractSocket::SocketError error)
+{
+    QTcpSocket* client = qobject_cast<QTcpSocket*>(sender());
+    log_error_m << "Socket error: " << client->errorString();
+}
 
 void Application::loadSettings()
 {
-//    // Закладка "Детектирование"
-//    _settings.detection.percentThreshold = QPair{1, 70};
-//    config::state().getValue("settings.detection.percent_threshold",
-//                             _settings.detection.percentThreshold);
-
-//    _settings.detection.saturateTime = QPair{2, 2.0};
-//    config::state().getValue("settings.detection.saturate_time",
-//                             _settings.detection.saturateTime);
-
-//    _settings.detection.protectExclude.clear();
-
-//    bool value = false;
-//    config::state().getValue("settings.detection.protect_exclude.helmet", value);
-//    if (value)
-//        _settings.detection.protectExclude.insert(Protector::Helmet);
-
-//    value = false;
-//    config::state().getValue("settings.detection.protect_exclude.vest", value);
-//    if (value)
-//        _settings.detection.protectExclude.insert(Protector::Vest);
-
-//    value = false;
-//    config::state().getValue("settings.detection.protect_exclude.gloves", value);
-//    if (value)
-//        _settings.detection.protectExclude.insert(Protector::Gloves);
-
-//    value = false;
-//    config::state().getValue("settings.detection.protect_exclude.boots", value);
-//    if (value)
-//        _settings.detection.protectExclude.insert(Protector::Boots);
-
-//    _settings.detection.glovesPair = true;
-//    config::state().getValue("settings.detection.gloves_pair",
-//                             _settings.detection.glovesPair);
-
-//    _settings.detection.bootsPair = true;
-//    config::state().getValue("settings.detection.boots_pair",
-//                             _settings.detection.bootsPair);
-
-//    // Закладка "Журнал"
-//    _settings.journal.keepHistory = QPair{1, 10};
-//    config::state().getValue("settings.journal.keep_history",
-//                             _settings.journal.keepHistory);
-
 //    _settings.journal.saveVideo = true;
 //    config::state().getValue("settings.journal.save_video",
 //                             _settings.journal.saveVideo);
@@ -299,29 +305,6 @@ void Application::loadSettings()
 
 void Application::saveSettings()
 {
-//    // Закладка "Детектирование"
-//    config::state().setValue("settings.detection.percent_threshold",
-//                             _settings.detection.percentThreshold);
-//    config::state().setValue("settings.detection.saturate_time",
-//                             _settings.detection.saturateTime);
-
-//    config::state().setValue("settings.detection.protect_exclude.helmet",
-//                             _settings.detection.protectExclude.contains(Protector::Helmet));
-//    config::state().setValue("settings.detection.protect_exclude.vest",
-//                             _settings.detection.protectExclude.contains(Protector::Vest));
-//    config::state().setValue("settings.detection.protect_exclude.gloves",
-//                             _settings.detection.protectExclude.contains(Protector::Gloves));
-//    config::state().setValue("settings.detection.protect_exclude.boots",
-//                             _settings.detection.protectExclude.contains(Protector::Boots));
-
-//    config::state().setValue("settings.detection.gloves_pair",
-//                             _settings.detection.glovesPair);
-//    config::state().setValue("settings.detection.boots_pair",
-//                             _settings.detection.bootsPair);
-
-//    // Закладка "Журнал"
-//    config::state().setValue("settings.journal.keep_history",
-//                             _settings.journal.keepHistory);
 //    config::state().setValue("settings.journal.save_video",
 //                             _settings.journal.saveVideo);
 

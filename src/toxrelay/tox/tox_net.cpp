@@ -1423,7 +1423,7 @@ void ToxNet::tox_file_recv(Tox* tox, uint32_t friend_number, uint32_t file_numbe
                            uint32_t kind, uint64_t file_size, const uint8_t* filename,
                            size_t filename_length, void* user_data)
 {
-    log_debug_m << "Call tox_file_recv()";
+    log_debug2_m << "Call tox_file_recv()";
 
     ToxNet* tn = static_cast<ToxNet*>(user_data);
     if (kind == TOX_FILE_KIND_AVATAR)
@@ -1511,7 +1511,7 @@ void ToxNet::tox_file_recv_chunk(Tox* tox, uint32_t friend_number, uint32_t file
                                  uint64_t position, const uint8_t* data, size_t length,
                                  void* user_data)
 {
-    log_debug_m << "Call tox_file_recv_chunk()";
+    log_debug2_m << "Call tox_file_recv_chunk()";
 
 //    ToxNet* tn = static_cast<ToxNet*>(user_data);
 //    if (lst::FindResult fr = tn->_recvAvatars.findRef(TransferData{friend_number, file_number}))
@@ -1550,7 +1550,7 @@ void ToxNet::tox_file_recv_chunk(Tox* tox, uint32_t friend_number, uint32_t file
 void ToxNet::tox_file_chunk_request(Tox* tox, uint32_t friend_number, uint32_t file_number,
                                     uint64_t position, size_t length, void* user_data)
 {
-    log_debug_m << "Call tox_file_chunk_request()";
+    log_debug2_m << "Call tox_file_chunk_request()";
 
     ToxNet* tn = static_cast<ToxNet*>(user_data);
     if (lst::FindResult fr = tn->_sendAvatars.findRef(TransferData{friend_number, file_number}))
@@ -1586,7 +1586,7 @@ void ToxNet::tox_file_chunk_request(Tox* tox, uint32_t friend_number, uint32_t f
 void ToxNet::tox_friend_lossless_packet(Tox* tox, uint32_t friend_number,
                                         const uint8_t* data, size_t length, void* user_data)
 {
-    log_debug_m << "Call tox_friend_lossless_packet()";
+    log_debug2_m << "Call tox_friend_lossless_packet()";
 
 //    ToxNet* tn = static_cast<ToxNet*>(user_data);
 //    Message::Ptr message = readToxMessage(tox, friend_number, data, length);

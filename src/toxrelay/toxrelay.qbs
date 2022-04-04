@@ -12,6 +12,7 @@ Product {
 
     Depends { name: "cpp" }
     Depends { name: "PProto" }
+    Depends { name: "QRcode" }
     Depends { name: "SharedLib" }
     Depends { name: "ToxCore" }
     Depends { name: "UsbRelay" }
@@ -48,8 +49,8 @@ Product {
 
     cpp.dynamicLibraries: {
         var libs = [
-            "pthread",
-            "usb-1.0",
+            "pthread"
+           ,"usb-1.0"
         ].concat(
             lib.sodium.dynamicLibraries
         );
