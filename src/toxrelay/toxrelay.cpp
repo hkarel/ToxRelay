@@ -58,10 +58,7 @@ void stopProgram()
         }
 
     STOP_THREAD(toxNet()      , "ToxNet"   , 15)
-    STOP_THREAD(usb::relay()  , "UsbRelay" , 20)
-//    STOP_THREAD(detect::siz()                , "DetectSiz"     , 15)
-//    STOP_THREAD(detect::person()             , "DetectPerson"  , 15)
-//    STOP_THREAD(video::capture()             , "VideoCap"      , 15)
+    STOP_THREAD(usb::relay()  , "UsbRelay" , 15)
 
     #undef STOP_THREAD
 
@@ -214,21 +211,21 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-//        if (!usb::relay().init())
-//        {
-//            stopProgram();
-//            return 1;
-//        }
-//        chk_connect_q(&usb::relay(), &usb::Relay::attached,
-//                      &appl, &Application::usbRelayAttached)
+        if (!usb::relay().init())
+        {
+            stopProgram();
+            return 1;
+        }
+        chk_connect_q(&usb::relay(), &usb::Relay::attached,
+                      &appl, &Application::usbRelayAttached)
 
-//        chk_connect_q(&usb::relay(), &usb::Relay::detached,
-//                      &appl, &Application::usbRelayDetached)
+        chk_connect_q(&usb::relay(), &usb::Relay::detached,
+                      &appl, &Application::usbRelayDetached)
 
-//        chk_connect_q(&usb::relay(), &usb::Relay::changed,
-//                      &appl, &Application::usbRelayChanged)
+        chk_connect_q(&usb::relay(), &usb::Relay::changed,
+                      &appl, &Application::usbRelayChanged)
 
-//        usb::relay().start();
+        usb::relay().start();
 
         if (!toxNet().init())
         {

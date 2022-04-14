@@ -23,9 +23,14 @@ extern const QUuidEx ToxMessage;
 extern const QUuidEx FriendRequest;
 
 /**
-  Удалить друга
+  Друг отключился от сети
 */
-extern const QUuidEx RemoveFriend;
+extern const QUuidEx FriendDisconnect;
+
+/**
+  Сохранить состояние
+*/
+//extern const QUuidEx SaveState;
 
 
 } // namespace command
@@ -37,8 +42,14 @@ namespace data {
 struct ToxMessage : Data<&command::ToxMessage,
                           Message::Type::Command>
 {
-    quint32 friendNumber = {UINT32_MAX}; // Числовой идентификатор друга
+    // Числовой идентификатор друга
+    quint32 friendNumber = {UINT32_MAX};
+
+    // Текст сообщения
     QString text;
+
+    // Вспомогательный параметр
+    bool outToLog = {true};
 
     DECLARE_B_SERIALIZE_FUNC
 };
@@ -52,14 +63,14 @@ struct FriendRequest : Data<&command::FriendRequest,
     DECLARE_B_SERIALIZE_FUNC
 };
 
-struct RemoveFriend : Data<&command::RemoveFriend,
-                            Message::Type::Command>
-{
-    QByteArray publicKey;
-    QString    name;
+//struct RemoveFriend : Data<&command::RemoveFriend,
+//                            Message::Type::Command>
+//{
+//    QByteArray publicKey;
+//    QString    name;
 
-    DECLARE_B_SERIALIZE_FUNC
-};
+//    DECLARE_B_SERIALIZE_FUNC
+//};
 
 
 } // namespace data

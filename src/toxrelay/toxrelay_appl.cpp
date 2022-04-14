@@ -4,7 +4,6 @@
 #include "shared/logger/logger.h"
 #include "shared/logger/format.h"
 #include "shared/config/appl_conf.h"
-#include "shared/config/logger_conf.h"
 #include "shared/qt/logger_operators.h"
 #include "shared/qt/version_number.h"
 
@@ -19,6 +18,7 @@
 #include "tox/tox_net.h"
 #include "tox/tox_func.h"
 #include "tox/tox_logger.h"
+#include "tox/tox_error.h"
 
 #include "qrcodegen.hpp"
 #include "usbrelay/usb_relay.h"
@@ -62,8 +62,15 @@ Application::Application(int& argc, char** argv)
 
     FUNC_REGISTRATION(ToxMessage)
     FUNC_REGISTRATION(FriendRequest)
+    FUNC_REGISTRATION(FriendDisconnect)
 
     #undef FUNC_REGISTRATION
+
+    using namespace std::placeholders;
+
+    _commandFunc["/"]        = std::bind(&Application::rootCmd,    this, _1);
+    _commandFunc["/relay"]   = std::bind(&Application::realayCmd,  this, _1);
+    _commandFunc["/friends"] = std::bind(&Application::friendsCmd, this, _1);
 }
 
 bool Application::init()
@@ -279,7 +286,6 @@ void Application::httpReadyRead()
 //    f.write(qrsvg.c_str());
 //    f.close();
 
-    //ba = s.toUtf8();
     client->write(s.toUtf8());
     client->disconnectFromHost();
 }
@@ -324,11 +330,393 @@ void Application::command_ToxMessage(const Message::Ptr& message)
     data::ToxMessage toxMessage;
     readFromMessage(message, toxMessage);
 
-    log_debug_m << "Tox mesage: " << toxMessage.text
-                << ". " << ToxFriendLog(toxNet().tox(), toxMessage.friendNumber);
+    log_verbose_m << "Tox message recv: " << toxMessage.text
+                  << ". " << ToxFriendLog(toxNet().tox(), toxMessage.friendNumber);
 
-    toxMessage.text = QString("Answer: ") + toxMessage.text;
+    if (_commandPath[toxMessage.friendNumber].isEmpty())
+        _commandPath[toxMessage.friendNumber] = "/";
 
-    Message::Ptr m = createMessage(toxMessage);
+    QString commandPath = _commandPath[toxMessage.friendNumber];
+    _commandFunc[commandPath](message);
+}
+
+void Application::command_FriendDisconnect(const Message::Ptr& message)
+{
+    quint32 friendNumber = message->tag();
+    _commandPath.remove(friendNumber);
+}
+
+bool Application::checkCommand(const QString& cmd, const QString& checkCmd,
+                               QChar shortCmd)
+{
+    if ((shortCmd == QChar(0)) && (cmd.length() == 1))
+        shortCmd = checkCmd[0];
+
+    return ((cmd.length() == 1) && (cmd[0] == shortCmd)) || (cmd == checkCmd);
+}
+
+void Application::rootCmd(const Message::Ptr& message)
+{
+    data::ToxMessage toxMessage;
+    readFromMessage(message, toxMessage);
+
+    //bool outToLog = true;
+    QString text, path;
+    QString cmd = toxMessage.text.toLower().trimmed();
+
+    if (checkCommand(cmd, "help"))
+    {
+        text =
+        "help [h] - this help\n"
+        "relay [r] - relay state\n"
+        "friends [f] - friends info\n";
+    }
+    else if (checkCommand(cmd, "relay"))
+    {
+        _commandPath[toxMessage.friendNumber] = "/relay";
+    }
+    else if (checkCommand(cmd, "friends"))
+    {
+        _commandPath[toxMessage.friendNumber] = "/friends";
+    }
+    else
+        text = "Unknown command. Print 'help' for more info";
+
+    Message::Ptr m;
+    if (!text.isEmpty())
+    {
+        toxMessage.text = text;
+        toxMessage.outToLog = false;
+        m = createMessage(toxMessage);
+        toxNet().message(m);
+    }
+
+    path = _commandPath[toxMessage.friendNumber] + " >";
+    toxMessage.text = path;
+    toxMessage.outToLog = false;
+    m = createMessage(toxMessage);
+    toxNet().message(m);
+}
+
+void Application::realayCmd(const Message::Ptr& message)
+{
+    static const QRegExp re {R"(^ *([0-8]) *(n|on|f|off))"};
+
+    data::ToxMessage toxMessage;
+    readFromMessage(message, toxMessage);
+
+    bool outToLog = true;
+    QString cmd, param, text, path;
+    cmd = toxMessage.text.toLower();
+
+    if (checkCommand(cmd, "help"))
+    {
+        text =
+        "help [h] - this help\n"
+        "info [i] - relay info\n"
+        "state [s] - relay state\n"
+        "quit [q] - to up level\n"
+        "To change relay state use command `X on/off` or `X n/f` where X the number of relay\n";
+        outToLog = false;
+    }
+    else if (checkCommand(cmd, "info"))
+    {
+        if (usb::relay().isAttached())
+        {
+            text =
+            "product: %1\n"
+            "serial: %2\n"
+            "count: %3\n"
+            "states: %4\n";
+
+            QString statesStr;
+            QVector<int> states = usb::relay().states();
+            for (int i = 0; i < states.count(); ++i)
+            {
+                statesStr += QString::number(i + 1);
+                statesStr += (states[i]) ? " on; " : " off; ";
+            }
+            text = text.arg(usb::relay().product())
+                       .arg(usb::relay().serial())
+                       .arg(usb::relay().count())
+                       .arg(statesStr) ;
+            outToLog = false;
+        }
+        else
+            text = "Error: USB relay not attached";
+    }
+    else if (checkCommand(cmd, "state"))
+    {
+        if (usb::relay().isAttached())
+        {
+            QString statesStr;
+            QVector<int> states = usb::relay().states();
+            for (int i = 0; i < states.count(); ++i)
+            {
+                statesStr += QString::number(i + 1);
+                statesStr += (states[i]) ? " on; " : " off; ";
+            }
+            text = statesStr;
+        }
+        else
+            text = "Error: USB relay not attached";
+    }
+    else if (re.indexIn(cmd) == 0)
+    {
+        if (usb::relay().isAttached())
+        {
+            QString p1 = re.cap(1);
+            QString p2 = re.cap(2);
+            int relayNumber = p1.toInt();
+            if (relayNumber <= usb::relay().count())
+            {
+                if ((p2 == "on") || (p2 == "n"))
+                {
+                    usb::relay().toggle(relayNumber, true);
+                }
+                else if ((p2 == "off") || (p2 == "f"))
+                {
+                    usb::relay().toggle(relayNumber, false);
+                }
+                else
+                    text = "Unknown command. Print 'help' for more info";
+            }
+            else
+            {
+                text = "Error: Failed toggle relay number %1. Number out of range [1..%2]";
+                text = text.arg(relayNumber).arg(usb::relay().count());
+            }
+        }
+        else
+            text = "Error: USB relay not attached";
+    }
+    else if (re.indexIn(cmd) == 0)
+    {
+        if (usb::relay().isAttached())
+        {
+            int relayNumber = cmd.toInt();
+            if (relayNumber <= usb::relay().count())
+            {
+                if ((param == "on") || (param == "o"))
+                {
+                    usb::relay().toggle(relayNumber, true);
+                }
+                else if ((param == "off") || (param == "f"))
+                {
+                    usb::relay().toggle(relayNumber, false);
+                }
+                else
+                    text = "Unknown command. Print 'help' for more info";
+            }
+            else
+            {
+                text = "Error: Failed toggle relay number %1. Number out of range [1..%2]";
+                text = text.arg(relayNumber).arg(usb::relay().count());
+            }
+        }
+        else
+            text = "Error: USB relay not attached";
+    }
+
+    else if (checkCommand(cmd, "quit"))
+    {
+        path = _commandPath[toxMessage.friendNumber];
+        int index = path.lastIndexOf(QChar('/'));
+        if (index > 0)
+            path.resize(index);
+        else
+            path = "/";
+
+        _commandPath[toxMessage.friendNumber] = path;
+        outToLog = false;
+    }
+    else
+        text = "Unknown command. Print 'help' for more info";
+
+    Message::Ptr m;
+    if (!text.isEmpty())
+    {
+        toxMessage.text = text;
+        toxMessage.outToLog = outToLog;
+        m = createMessage(toxMessage);
+        toxNet().message(m);
+    }
+
+    path = _commandPath[toxMessage.friendNumber] + " >";
+    toxMessage.text = path;
+    toxMessage.outToLog = false;
+    m = createMessage(toxMessage);
+    toxNet().message(m);
+
+}
+
+void Application::friendsCmd(const Message::Ptr& message)
+{
+    data::ToxMessage toxMessage;
+    readFromMessage(message, toxMessage);
+
+    bool outToLog = true;
+    QStringList lst = toxMessage.text.toLower().split(QChar(' '), QString::SkipEmptyParts);
+
+    QString cmd, param, text, path;
+    if (lst.count() >= 1)
+        cmd = lst[0];
+
+    if (lst.count() >= 2)
+        param = lst[1];
+
+    if (checkCommand(cmd, "help"))
+    {
+        text =
+        "help [h] - this help\n"
+        "list [l] - friends list\n"
+        "add [a] - add friend with PUBLIC_KEY\n"
+        "remove [r] - remove friend with PUBLIC_KEY\n"
+        "lock [k] - adding the new friends by request is locked (set value on/off)\n"
+        "quit [q] - to up level\n";
+        outToLog = false;
+    }
+    else if (checkCommand(cmd, "list"))
+    {
+        ToxGlobalLock toxGlobalLock; (void) toxGlobalLock;
+
+        // Выводим в лог информацию по подключенным друзьям
+        if (uint32_t friendCount = tox_self_get_friend_list_size(toxNet().tox()))
+        {
+            QVector<uint32_t> fnumbers;
+            fnumbers.resize(friendCount);
+            tox_self_get_friend_list(toxNet().tox(), fnumbers.data());
+
+            for (uint32_t i = 0; i < friendCount; ++i)
+            {
+                uint32_t friendNumber = fnumbers[i];
+                QString friendName = getToxFriendName(toxNet().tox(), friendNumber);
+                QByteArray friendPk = getToxFriendKey(toxNet().tox(), friendNumber);
+                TOX_CONNECTION connectStatus = getFriendConnectStatus(toxNet().tox(), friendNumber);
+
+                text += friendName + "\n";
+                text += friendPk.toHex().toUpper() + "\n";
+                text += QString("Connection: ") + toString(connectStatus) + "\n";
+                text += "---\n";
+            }
+        }
+        outToLog = false;
+    }
+    else if (checkCommand(cmd, "add"))
+    {
+        if (!param.isEmpty())
+        {
+            TOX_ERR_FRIEND_ADD err;
+            data::MessageError msgerr;
+
+            uint32_t friendNum;
+            QByteArray publicKey = QByteArray::fromHex(param.toUtf8());
+            { //Block for ToxGlobalLock
+                ToxGlobalLock toxGlobalLock; (void) toxGlobalLock;
+                friendNum = tox_friend_add_norequest(toxNet().tox(),
+                                (uint8_t*)publicKey.constData(), &err);
+                (void) friendNum;
+            }
+            if (!toxError(err, msgerr))
+            {
+                text = "Friend was successfully added";
+                if (!toxNet().saveState())
+                    text = "Error: " + error::save_tox_state.description;
+            }
+            else
+                text = "Error: " + msgerr.description;
+        }
+        else
+            text = "Friend public key not set. Use: add PUBLIC_KEY";
+    }
+    else if (checkCommand(cmd, "remove"))
+    {
+        if (!param.isEmpty())
+        {
+            QByteArray publicKey = QByteArray::fromHex(param.toUtf8());
+            uint32_t friendNum = getToxFriendNum(toxNet().tox(), publicKey);
+            if (friendNum != UINT32_MAX)
+            {
+                QString friendName = getToxFriendName(toxNet().tox(), friendNum);
+                bool result;
+                { //Block for ToxGlobalLock
+                    ToxGlobalLock toxGlobalLock; (void) toxGlobalLock;
+                    result = tox_friend_delete(toxNet().tox(), friendNum, 0);
+                }
+                if (result)
+                {
+                    text = "Friend '%1' was removed";
+                    text = text .arg(friendName);
+                    if (!toxNet().saveState())
+                        text = "Error: " + error::save_tox_state.description;
+                }
+                else
+                {
+                    text = "Error: failed remove friend '%1'";
+                    text = text .arg(friendName);
+                }
+            }
+            else
+                text = "Error: friend not found";
+        }
+        else
+            text = "Friend public key not set. Use: remove PUBLIC_KEY";
+    }
+    else if (checkCommand(cmd, "lock", 'k'))
+    {
+        if (!param.isEmpty())
+        {
+            if (param == "on")
+            {
+                config::state().setValue("lock_add_friends", true);
+                config::state().saveFile();
+            }
+            else if (param == "off")
+            {
+                config::state().setValue("lock_add_friends", false);
+                config::state().saveFile();
+            }
+            else
+            {
+                text = "Error: failed set the value %1 to 'lock' param. Use: lock on/off";
+                text = text.arg(param);
+            }
+        }
+        else
+        {
+            bool val = false;
+            config::state().getValue("lock_add_friends", val);
+            text  = "lock ";
+            text += (val) ? "on" : "off";
+        }
+    }
+    else if (checkCommand(cmd, "quit"))
+    {
+        path = _commandPath[toxMessage.friendNumber];
+        int index = path.lastIndexOf(QChar('/'));
+        if (index > 0)
+            path.resize(index);
+        else
+            path = "/";
+
+        _commandPath[toxMessage.friendNumber] = path;
+        outToLog = false;
+    }
+    else
+        text = "Unknown command. Print 'help' for more info";
+
+    Message::Ptr m;
+    if (!text.isEmpty())
+    {
+        toxMessage.text = text;
+        toxMessage.outToLog = outToLog;
+        m = createMessage(toxMessage);
+        toxNet().message(m);
+    }
+
+    path = _commandPath[toxMessage.friendNumber] + " >";
+    toxMessage.text = path;
+    toxMessage.outToLog = false;
+    m = createMessage(toxMessage);
     toxNet().message(m);
 }

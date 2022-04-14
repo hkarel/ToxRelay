@@ -25,6 +25,7 @@ class ToxNet : public QThreadEx
 public:
     bool init();
     void deinit();
+    bool saveState();
     Tox* tox() const {return _tox;}
 
 signals:
@@ -41,8 +42,6 @@ private:
 
     void run() override;
     void updateBootstrap();
-    bool saveState();
-    //bool saveAvatar(const QByteArray& avatar, const QString& avatarFile);
 
     QByteArray avatarHash(const QString& avatarFile);
     void sendAvatar(uint32_t friendNumber);
@@ -53,18 +52,8 @@ private:
     void setDhtConnectStatus(bool val) {_dhtConnected = val;}
 
     //--- Обработчики команд ---
-    //void command_IncomingConfigConnection(const Message::Ptr&);
-    //void command_ToxProfile(const Message::Ptr&);
-    //void command_RequestFriendship(const Message::Ptr&);
-    //void command_FriendRequest(const Message::Ptr&);
-    //void command_RemoveFriend(const Message::Ptr&);
-    //void command_PhoneFriendInfo(const Message::Ptr&);
     void command_ToxMessage(const Message::Ptr&);
-
-    // Функции обновляют состояние конфигуратора
-    //void updateFriendList();
-    //void updateFriendRequests();
-    //void updateDhtStatus();
+    //void command_SaveState(const Message::Ptr&);
 
 //    bool fillFriendItem(data::FriendItem&, uint32_t friendNumber);
 
@@ -89,8 +78,8 @@ private:
                                              void* user_data);
     static void tox_file_recv_control       (Tox* tox, uint32_t friend_number, uint32_t file_number,
                                              TOX_FILE_CONTROL control, void* user_data);
-    static void tox_file_recv               (Tox *tox, uint32_t friend_number, uint32_t file_number,
-                                             uint32_t kind, uint64_t file_size, const uint8_t *filename,
+    static void tox_file_recv               (Tox* tox, uint32_t friend_number, uint32_t file_number,
+                                             uint32_t kind, uint64_t file_size, const uint8_t* filename,
                                              size_t filename_length, void* user_data);
     static void tox_file_recv_chunk         (Tox* tox, uint32_t friend_number, uint32_t file_number,
                                              uint64_t position, const uint8_t* data, size_t length,
@@ -152,9 +141,7 @@ private:
     TransferData::List _sendAvatars;
     //TransferData::List _recvAvatars;
 
-    // Параметр используется для отслеживания смены статуса подключения друзей.
-    // Не используем здесь QSet, т.к. QSet некорректно работает с типом uint32_t
-    //std::set<uint32_t> _connectionStatusSet;
+    // Параметр используется для отслеживания смены статуса подключения друзей
     QSet<uint32_t> _connectionStatusSet;
 
     FunctionInvoker _funcInvoker;

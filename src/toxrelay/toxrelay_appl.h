@@ -10,6 +10,7 @@
 #include <QTcpServer>
 #include <atomic>
 #include <chrono>
+#include <functional>
 
 using namespace std;
 using namespace pproto;
@@ -49,11 +50,22 @@ private:
 
     void command_FriendRequest(const Message::Ptr&);
     void command_ToxMessage(const Message::Ptr&);
+    void command_FriendDisconnect(const Message::Ptr&);
 
     void loadSettings();
     void saveSettings();
 
+    bool checkCommand(const QString& cmd, const QString& checkCmd,
+                      QChar shortCmd = QChar(0));
+
+    // Команды CLI
+    void rootCmd(const Message::Ptr&);
+    void realayCmd(const Message::Ptr&);
+    void friendsCmd(const Message::Ptr&);
+
 private:
+    typedef std::function<void (const Message::Ptr&)> CmdFunc;
+
     static QUuidEx _applId;
     static volatile bool _stop;
     static std::atomic_int _exitCode;
@@ -62,4 +74,11 @@ private:
 
     QTcpServer* _httpConnector;
     FunctionInvoker _funcInvoker;
+
+    //QString _commandPath = {"/"};
+
+    //quint32 friendNumber
+
+    QMap<quint32 /*friend number*/, QString> _commandPath;
+    QMap<QString /*command path */, CmdFunc> _commandFunc;
 };

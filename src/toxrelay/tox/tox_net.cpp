@@ -27,8 +27,8 @@
 #define log_debug_m   alog::logger().debug  (alog_line_location, "ToxNet")
 #define log_debug2_m  alog::logger().debug2 (alog_line_location, "ToxNet")
 
-static const char* error_save_tox_state =
-    QT_TRANSLATE_NOOP("ToxNet", "An error occurred when saved tox state");
+//static const char* error_save_tox_state =
+//    QT_TRANSLATE_NOOP("ToxNet", "An error occurred when saved tox state");
 
 //static const char* error_save_tox_profile =
 //        QT_TRANSLATE_NOOP("ToxNet", "An error occurred when saved profile");
@@ -52,14 +52,8 @@ ToxNet::ToxNet() : QThreadEx()
     #define FUNC_REGISTRATION(COMMAND) \
         _funcInvoker.registration(command:: COMMAND, &ToxNet::command_##COMMAND, this);
 
-//    FUNC_REGISTRATION(IncomingConfigConnection)
-//    FUNC_REGISTRATION(ToxProfile)
-//    FUNC_REGISTRATION(RequestFriendship)
-//    FUNC_REGISTRATION(FriendRequest)
-//    FUNC_REGISTRATION(RemoveFriend)
-//    FUNC_REGISTRATION(PhoneFriendInfo)
-//    FUNC_REGISTRATION(FriendAudioChange)
     FUNC_REGISTRATION(ToxMessage)
+    //FUNC_REGISTRATION(SaveState)
 
     #undef FUNC_REGISTRATION
 }
@@ -350,19 +344,17 @@ void ToxNet::updateBootstrap()
 
 bool ToxNet::saveState()
 {
-    QString configTmp = _configPath + ".tox";
-
-    size_t size = tox_get_savedata_size(_tox);
     QByteArray data;
-    data.resize(size);
-    tox_get_savedata(_tox, (uint8_t*)data.constData());
-
-    qsrand(std::time(0));
-    configTmp += QString::number(qrand());
+    { //Block for ToxGlobalLock
+        ToxGlobalLock toxGlobalLock; (void) toxGlobalLock;
+        size_t size = tox_get_savedata_size(_tox);
+        data.resize(size);
+        tox_get_savedata(_tox, (uint8_t*)data.constData());
+    }
 
     typedef chrono::high_resolution_clock clock;
     uint64_t timeTick = clock::now().time_since_epoch().count();
-    configTmp += QString::number(timeTick);
+    QString configTmp = _configPath + ".tox" + QString::number(timeTick);
 
     QFile file {configTmp};
     if (!file.open(QIODevice::WriteOnly))
@@ -1053,14 +1045,24 @@ void ToxNet::command_ToxMessage(const Message::Ptr& message)
     data::ToxMessage toxMessage;
     readFromMessage(message, toxMessage);
 
+    if (toxMessage.outToLog)
+        log_verbose_m << "Tox message sent: " << toxMessage.text
+                      << ". " << ToxFriendLog(_tox, toxMessage.friendNumber);
+
     QByteArray ba = toxMessage.text.toUtf8();
 
     TOX_ERR_FRIEND_SEND_MESSAGE err;
     tox_friend_send_message(_tox, toxMessage.friendNumber, TOX_MESSAGE_TYPE_NORMAL,
                             (uint8_t*)ba.constData(), ba.length(), &err);
     if (err != TOX_ERR_FRIEND_SEND_MESSAGE_OK)
-        log_error_m << "Failed send message: '" << toxMessage.text << "'";
+        log_error_m << "Failed send message";
 }
+
+//void ToxNet::command_SaveState(const Message::Ptr&)
+//{
+//    if (!saveState())
+//        log_error_m << error::save_tox_state.description;
+//}
 
 //void ToxNet::updateFriendList()
 //{
@@ -1202,15 +1204,29 @@ ToxNet::BootstrapNode::~BootstrapNode()
 //------------------------------ Tox callback --------------------------------
 
 void ToxNet::tox_friend_request(Tox* tox, const uint8_t* pub_key,
-                                const uint8_t* msg, size_t length, void* user_data)
+                                const uint8_t* msg, size_t length,
+                                void* user_data)
 {
+    QByteArray ba = QByteArray::fromRawData((char*)pub_key, TOX_PUBLIC_KEY_SIZE);
+    QByteArray publicKey {ba.toHex().toUpper()};
+
+    log_verbose_m << "Request to add friend. Key: " << publicKey;
+
+    bool lockAdd = false;
+    config::state().getValue("lock_add_friends", lockAdd);
+
+    if (lockAdd)
+    {
+        log_verbose_m << "Adding the new friends is locked";
+        return;
+    }
+
     ToxNet* tn = static_cast<ToxNet*>(user_data);
 
     TOX_ERR_FRIEND_ADD err;
     data::MessageError msgerr;
 
-    uint32_t friendNum;
-    friendNum = tox_friend_add_norequest(tn->_tox, pub_key, &err);
+    uint32_t friendNum = tox_friend_add_norequest(tox, pub_key, &err);
     if (toxError(err, msgerr))
     {
         log_error_m << "Failed add friend: " << msgerr.description;
@@ -1219,15 +1235,11 @@ void ToxNet::tox_friend_request(Tox* tox, const uint8_t* pub_key,
 
     if (!tn->saveState())
     {
-        log_error_m << error_save_tox_state;
+        log_error_m << error::save_tox_state.description;
         return;
     }
 
-    QByteArray ba = QByteArray::fromRawData((char*)pub_key, TOX_PUBLIC_KEY_SIZE);
-    QByteArray publicKey {ba.toHex().toUpper()};
-
-    log_verbose_m << "Friend was successfully added to friend list"
-                  << ". Friend key: " << publicKey;
+    log_verbose_m << "Friend was successfully added to friend list";
 
     data::FriendRequest friendRequest;
     friendRequest.friendNumber = friendNum;
@@ -1401,6 +1413,10 @@ void ToxNet::tox_friend_connection_status(Tox* tox, uint32_t friend_number,
         };
         tn->_sendAvatars.removeCond(remove);
         //tn->_recvAvatars.removeCond(remove);
+
+        Message::Ptr m = createMessage(command::FriendDisconnect);
+        m->setTag(friend_number);
+        emit tn->internalMessage(m);
     }
 }
 

@@ -16,5 +16,7 @@ DECL_ERROR_CODE(tox_err_file_send,             0, "064a71e1-88a5-4486-8570-c7e20
 DECL_ERROR_CODE(tox_err_file_send_chunk,       0, "2df2a88e-b035-45aa-8404-060c19f11cec", "TOX_ERR_FILE_SEND_CHUNK")
 DECL_ERROR_CODE(tox_err_friend_add,            0, "d850be4b-c8d4-44f1-b99e-e1dc0657be31", "TOX_ERR_FRIEND_ADD")
 
+DECL_ERROR_CODE(save_tox_state,               10, "378ff889-099b-485b-aed9-340c9d902b80", QT_TRANSLATE_NOOP("ToxNet", "An error occurred when saved tox state"))
+
 } // namespace error
 } // namespace pproto
