@@ -121,8 +121,14 @@ Project {
         Depends { name: "ToxFriends" }
 
         files: [
+            toxPrefix + "toxcore/announce.c",
+            toxPrefix + "toxcore/announce.h",
+            toxPrefix + "toxcore/forwarding.c",
+            toxPrefix + "toxcore/forwarding.h",
             toxPrefix + "toxcore/Messenger.c",
             toxPrefix + "toxcore/Messenger.h",
+            toxPrefix + "toxcore/timed_auth.c",
+            toxPrefix + "toxcore/timed_auth.h",
         ]
     }
 
