@@ -25,6 +25,7 @@ class ToxNet : public QThreadEx
 public:
     bool init();
     void deinit();
+
     bool saveState();
     Tox* tox() const {return _tox;}
 

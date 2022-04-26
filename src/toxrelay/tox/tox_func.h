@@ -33,7 +33,7 @@ QByteArray getToxSelfPublicKey(Tox* tox);
 // Возвращает статус подключения друга
 TOX_CONNECTION getFriendConnectStatus(Tox* tox, uint32_t friendNumber);
 
-//// Отправляем сообщение Message через tox-механизм пользовательских сообщений
+//// Отправляет сообщение Message через tox-механизм пользовательских сообщений
 //bool sendToxLosslessMessage(Tox* tox, uint32_t friendNumber,
 //                            const communication::Message::Ptr&);
 
