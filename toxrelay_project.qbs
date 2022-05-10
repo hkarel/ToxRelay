@@ -10,6 +10,7 @@ ToxRealayBase {
         //"src/rapidjson/rapidjson.qbs",
         "src/shared/shared.qbs",
         "src/toxcore/toxcore.qbs",
+        "src/toxfunc/toxfunc.qbs",
         "src/toxrelay/toxrelay.qbs",
         "src/usbrelay/usb_relay.qbs",
         "src/yaml/yaml.qbs",

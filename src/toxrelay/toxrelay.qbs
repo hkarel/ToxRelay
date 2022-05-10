@@ -15,6 +15,7 @@ Product {
     Depends { name: "QRcode" }
     Depends { name: "SharedLib" }
     Depends { name: "ToxCore" }
+    Depends { name: "ToxFunc" }
     Depends { name: "UsbRelay" }
     Depends { name: "Yaml" }
     Depends { name: "lib.sodium" }
@@ -60,13 +61,6 @@ Product {
     files: [
         "commands/commands.cpp",
         "commands/commands.h",
-        "commands/error.h",
-        "tox/tox_error.cpp",
-        "tox/tox_error.h",
-        "tox/tox_func.cpp",
-        "tox/tox_func.h",
-        "tox/tox_logger.cpp",
-        "tox/tox_logger.h",
         "tox/tox_net.cpp",
         "tox/tox_net.h",
         "toxrelay.cpp",

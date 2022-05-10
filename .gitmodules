@@ -19,3 +19,6 @@
 [submodule "src/qrcode/QR-Code-generator"]
 	path = src/qrcode/QR-Code-generator
 	url = https://github.com/nayuki/QR-Code-generator.git
+[submodule "src/toxfunc/toxfunc"]
+	path = src/toxfunc/toxfunc
+	url = https://github.com/hkarel/ToxFunc.git
