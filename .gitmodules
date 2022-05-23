@@ -22,3 +22,6 @@
 [submodule "src/toxfunc/toxfunc"]
 	path = src/toxfunc/toxfunc
 	url = https://github.com/hkarel/ToxFunc.git
+[submodule "setup/scripts"]
+	path = setup/scripts
+	url = https://github.com/hkarel/InstallScripts.git
