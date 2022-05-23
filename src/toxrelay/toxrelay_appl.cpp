@@ -368,8 +368,8 @@ void Application::rootCmd(const Message::Ptr& message)
     if (checkCommand(cmd, "help"))
     {
         text =
-        "help [h] - this help\n"
-        "relay [r] - relay state\n"
+        "help  \t[h] - this help;\n"
+        "relay \t[r] - relay state;\n"
         "friends [f] - friends info\n";
     }
     else if (checkCommand(cmd, "relay"))
@@ -413,10 +413,10 @@ void Application::realayCmd(const Message::Ptr& message)
     if (checkCommand(cmd, "help"))
     {
         text =
-        "help [h] - this help\n"
-        "info [i] - relay info\n"
-        "state [s] - relay state\n"
-        "quit [q] - to up level\n"
+        "help  \t[h] - this help;\n"
+        "info  \t[i] - relay info;\n"
+        "state \t[s] - relay state;\n"
+        "quit  \t[q] - to up level;\n"
         "To change relay state use command `X on/off` or `X n/f` where X the number of relay\n";
         outToLog = false;
     }
@@ -569,12 +569,12 @@ void Application::friendsCmd(const Message::Ptr& message)
     if (checkCommand(cmd, "help"))
     {
         text =
-        "help [h] - this help\n"
-        "list [l] - friends list\n"
-        "add [a] - add friend with PUBLIC_KEY\n"
-        "remove [r] - remove friend with PUBLIC_KEY\n"
-        "lock [k] - adding the new friends by request is locked (set value on/off)\n"
-        "quit [q] - to up level\n";
+        "help \t[h] - this help;\n"
+        "list \t[l] - friends list;\n"
+        "add  \t[a] - add friend with PUBLIC_KEY;\n"
+        "remove [r] - remove friend with PUBLIC_KEY;\n"
+        "lock \t[k] - lock the adding new friends by request (set value on/off);\n"
+        "quit \t[q] - to up level\n";
         outToLog = false;
     }
     else if (checkCommand(cmd, "list"))
