@@ -440,7 +440,7 @@ void Application::realayCmd(const Message::Ptr& message)
             text = text.arg(usb::relay().product())
                        .arg(usb::relay().serial())
                        .arg(usb::relay().count())
-                       .arg(statesStr) ;
+                       .arg(statesStr);
             outToLog = false;
         }
         else

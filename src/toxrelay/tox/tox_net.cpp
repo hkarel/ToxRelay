@@ -224,9 +224,11 @@ bool ToxNet::init()
     }
     _toxSaveData.clear();
 
-    if (_toxOptions.savedata_type == TOX_SAVEDATA_TYPE_NONE)
-        if (!setUserProfile("toxrelay", "ToxRealay in tox"))
-            return false;
+    QString status = "ToxRealay in tox";
+    config::base().getValue("tox_status", status);
+
+    if (!setUserProfile("toxrelay", status))
+        return false;
 
     //QByteArray selfPubKey = getToxSelfPublicKey(_tox);
     //QString avatarFile = _avatarPath + selfPubKey.toHex().toUpper();
@@ -1047,8 +1049,19 @@ void ToxNet::command_ToxMessage(const Message::Ptr& message)
     readFromMessage(message, toxMessage);
 
     if (toxMessage.outToLog)
-        log_verbose_m << "Tox message sent: " << toxMessage.text
+    {
+        QString text = toxMessage.text.trimmed();
+        if (!text.isEmpty())
+        {
+            QChar ch = text[text.length()-1];
+            if (ch == QChar('.')
+                || ch == QChar(',')
+                || ch == QChar(';'))
+                text.chop(1);
+        }
+        log_verbose_m << "Tox message sent: " << text
                       << ". " << ToxFriendLog(_tox, toxMessage.friendNumber);
+    }
 
     QByteArray ba = toxMessage.text.toUtf8();
 
