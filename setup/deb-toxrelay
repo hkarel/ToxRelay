@@ -1,0 +1,120 @@
+#!/bin/bash
+
+#
+# Формирование deb-пакета toxrelay
+#
+product_name=${project_name}
+echo "---"
+echo "product_name ........ $product_name"
+
+package_dir=$script_dir/build/${build_subdir}/deb/$product_name
+echo "package_dir ......... $package_dir"
+
+package_name="${product_name}-${full_package_vers}-${os_id}${os_ver}-${os_arch}.deb"
+echo "package_name ........ $package_name"
+
+rm -rf $package_dir
+
+mkdir -p $package_dir/DEBIAN
+mkdir -p $package_dir/etc/$product_dir
+mkdir -p $package_dir/etc/systemd/system
+mkdir -p $package_dir/etc/udev/rules.d
+mkdir -p $package_dir/opt/$product_dir/bin
+mkdir -p $package_dir/opt/$product_dir/lib
+mkdir -p $package_dir/var/opt/$product_dir/log
+mkdir -p $package_dir/var/opt/$product_dir/state
+
+cp $script_dir/setup/deb/$product_name/DEBIAN/*     $package_dir/DEBIAN
+cp $script_dir/config/bootstrap.nodes               $package_dir/etc/$product_dir
+cp $script_dir/config/toxrelay.conf                 $package_dir/etc/$product_dir
+cp $script_dir/config/toxrelay.logger.conf          $package_dir/etc/$product_dir
+cp $script_dir/src/usbrelay/udev/99-usbrelay.rules  $package_dir/etc/udev/rules.d
+cp $script_dir/systemd/toxrelay.service             $package_dir/etc/systemd/system
+
+cp $build_dir/bin/toxrelay                          $package_dir/opt/$product_dir/bin
+
+for f in $(cat ${build_dir}/package_build_info); do
+    [ -n "$f" ] && cp -P $f $package_dir/opt/$product_dir/lib
+done
+rm -f $package_dir/opt/$product_dir/lib/*-gdb.py
+
+chmod -R go-w        $package_dir
+chmod    u=rwx,go=rx $package_dir/DEBIAN/post*
+chmod    u=rwx,go=rx $package_dir/DEBIAN/pre*
+chmod    u=rw,go=r   $package_dir/DEBIAN/conffiles
+chmod    u=rwX,go=rX $package_dir/etc/$product_dir
+chmod -R u=rwX,go=rX $package_dir/etc/udev/rules.d
+chmod -R u=rwX,go=rX $package_dir/opt/$product_dir
+chmod    u=rwx,go=rx $package_dir/opt/$product_dir/bin/toxrelay
+chmod    u=rw,go=r   $package_dir/opt/$product_dir/lib/*
+
+#  Права на директорию /var/opt/toxrelay назначаются в скрипте postinst
+
+if [ "$build_mode" = "release" ]; then
+    set +e
+    echo -e "\nRemoving debug info ... "
+    for f in $(find $package_dir/opt/$product_dir/bin -type f); do strip_debug_info $f; done
+    for f in $(find $package_dir/opt/$product_dir/lib -type f); do strip_debug_info $f; done
+    set -e
+fi
+
+# Размер пакета
+installed_size=$(du -s $package_dir | sed -r 's/([0-9]+).*/\1/')
+echo "installed_size: $installed_size"
+
+package_depends=$(cat << EOS
+    libc6, systemd, libusb-1.0-0, libqt5core5a, libqt5network5
+EOS
+)
+
+os_arch_control=$os_arch
+[ "${os_arch:0:3}" = "arm" ] && os_arch_control=armhf
+
+sed -e "s/%VERSION%/${package_vers}-${package_date}git${gitrev}/" \
+    -e "s/%ARCHITECTURE%/${os_arch_control}/" \
+    -e "s/%INSTALLED_SIZE%/${installed_size}/" \
+    -e "s/%DEPENDS%/${package_depends}/" \
+    -i $package_dir/DEBIAN/control
+
+# Контрольные суммы файлов пакета
+cd $package_dir
+md5deep -rl -o f etc >> DEBIAN/md5sums
+md5deep -rl -o f opt >> DEBIAN/md5sums
+chmod  0644 DEBIAN/md5sums
+cd $script_dir
+
+# Создание deb-пакета
+fakeroot dpkg-deb --build $package_dir ${build_dir}/$package_name
+
+# Проверка deb-пакета
+echo "Start 'lintian'"
+set +e
+lintian --suppress-tags \
+hardening-no-relro,\
+binary-or-shlib-defines-rpath,\
+dir-or-file-in-opt,\
+bad-package-name,\
+package-not-lowercase,\
+systemd-service-file-outside-lib,\
+maintainer-script-calls-systemctl,\
+file-in-etc-not-marked-as-conffile,\
+maintainer-script-ignores-errors,\
+maintainer-script-empty,\
+udev-rule-in-etc,\
+maintainer-script-should-not-use-recursive-chown-or-chmod \
+${build_dir}/$package_name
+set -e
+
+if [ "$build_packages" = "yes" ]; then
+    cd $script_dir
+    mkdir -p packages
+    echo "Copying file $package_name to directory ./packages"
+    cp -f ${build_dir}/$package_name ./packages
+    cp -f ${build_dir}/$package_name ./packages/last
+fi
+
+if [ "$install_toxrelay" = "yes" ]; then
+    echo "Install ${product_name}..."
+    sudo dpkg -i ${build_dir}/$package_name
+    echo "${product_name} installation is complete"
+fi

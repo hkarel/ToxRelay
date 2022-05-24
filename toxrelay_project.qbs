@@ -14,6 +14,6 @@ ToxRealayBase {
         "src/toxrelay/toxrelay.qbs",
         "src/usbrelay/usb_relay.qbs",
         "src/yaml/yaml.qbs",
-        //"setup/package_build.qbs",
+        "setup/package_build.qbs",
     ]
 }

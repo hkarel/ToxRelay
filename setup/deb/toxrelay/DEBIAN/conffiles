@@ -1,0 +1,3 @@
+/etc/toxrelay/bootstrap.nodes
+/etc/toxrelay/toxrelay.conf
+/etc/toxrelay/toxrelay.logger.conf

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set +e
+
+res=$(systemctl list-unit-files | grep 'toxrelay.service')
+if [ -n "$res" ]; then
+    systemctl stop    toxrelay.service
+    systemctl disable toxrelay.service
+fi
+
+exit 0

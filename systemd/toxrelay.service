@@ -1,0 +1,17 @@
+[Unit]
+Description=Tox client for usb-relay control
+After=network.target multi-user.target
+;OnFailure=neograph-notify.service
+
+[Service]
+Type=simple
+User=%TARGET_USER%
+Group=toxrelay
+ExecStart=/opt/toxrelay/bin/toxrelay
+TimeoutSec=300
+KillMode=process
+Restart=on-failure
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target
