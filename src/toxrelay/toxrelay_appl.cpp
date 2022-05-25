@@ -370,7 +370,7 @@ void Application::rootCmd(const Message::Ptr& message)
         text =
         "help  \t[h] - this help;\n"
         "relay \t[r] - relay state;\n"
-        "friends [f] - friends info\n";
+        "friends [f] - friends info";
     }
     else if (checkCommand(cmd, "relay"))
     {
@@ -417,7 +417,7 @@ void Application::realayCmd(const Message::Ptr& message)
         "info  \t[i] - relay info;\n"
         "state \t[s] - relay state;\n"
         "quit  \t[q] - to up level;\n"
-        "To change relay state use command `X on/off` or `X n/f` where X the number of relay\n";
+        "To change relay state use command `X on/off` or `X n/f` where X the number of relay";
         outToLog = false;
     }
     else if (checkCommand(cmd, "info"))
@@ -428,7 +428,7 @@ void Application::realayCmd(const Message::Ptr& message)
             "product: %1\n"
             "serial: %2\n"
             "count: %3\n"
-            "states: %4\n";
+            "states: %4";
 
             QString statesStr;
             QVector<int> states = usb::relay().states();
@@ -574,7 +574,7 @@ void Application::friendsCmd(const Message::Ptr& message)
         "add  \t[a] - add friend with PUBLIC_KEY;\n"
         "remove [r] - remove friend with PUBLIC_KEY;\n"
         "lock \t[k] - lock the adding new friends by request (set value on/off);\n"
-        "quit \t[q] - to up level\n";
+        "quit \t[q] - to up level";
         outToLog = false;
     }
     else if (checkCommand(cmd, "list"))
