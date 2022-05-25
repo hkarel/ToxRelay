@@ -1409,8 +1409,12 @@ void ToxNet::tox_friend_connection_status(Tox* tox, uint32_t friend_number,
 
 //#pragma GCC diagnostic pop
 
-    log_debug_m << "ToxEvent: friend " << toString(connection_status)
-                << " connection. " << ToxFriendLog(tox, friend_number);
+    if (connection_status != TOX_CONNECTION_NONE)
+        log_debug_m << "ToxEvent: friend " << toString(connection_status)
+                    << " connection. " << ToxFriendLog(tox, friend_number);
+    else
+        log_debug_m << "ToxEvent: friend disconnected"
+                    << ". " << ToxFriendLog(tox, friend_number);
 
     if (connection_status != TOX_CONNECTION_NONE
         && !tn->_connectionStatusSet.contains(friend_number))
