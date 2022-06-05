@@ -370,7 +370,9 @@ void Application::rootCmd(const Message::Ptr& message)
         text =
         "help  \t[h] - this help;\n"
         "relay \t[r] - relay state;\n"
-        "friends [f] - friends info";
+        "friends [f] - friends info;\n"
+        "version: %1 (gitrev: %2)";
+        text = text.arg(VERSION_PROJECT, GIT_REVISION);
     }
     else if (checkCommand(cmd, "relay"))
     {
